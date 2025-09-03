@@ -2,19 +2,23 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
+  const router = useRouter();
+  
   const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
+
     event.preventDefault();
     const loginData = {
       email,
       password,
     };
     console.log("Login data submitted:", loginData);
+    router.push('/dashboard');
     // Here you would typically handle user authentication, e.g., send data to an API
   };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image"
 
 export default function ProfilePage() {
   const [formData, setFormData] = useState<{
@@ -59,7 +60,7 @@ export default function ProfilePage() {
         {/* Profile Picture Section */}
         <div className="flex flex-col items-center mb-6">
           <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-green-500 shadow-md">
-            <img
+            <Image
               src={
                 formData.image
                   ? URL.createObjectURL(formData.image)
@@ -68,7 +69,8 @@ export default function ProfilePage() {
               alt="Profile"
               width={128}
               height={128}
-              className="w-full h-full object-cover"
+              className="object-cover"
+              unoptimized // Needed for blob URLs or non-remote images
             />
           </div>
           <div className="mt-4">
