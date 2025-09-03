@@ -3,7 +3,6 @@
 import { useState } from "react";
 
 export default function ProfilePage() {
-  // In a real application, you would fetch the user's data from a database
   const [formData, setFormData] = useState<{
     fullName: string;
     email: string;
@@ -16,25 +15,28 @@ export default function ProfilePage() {
     image: null,
   });
 
+  // Handles text and radio input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, files } = e.target;
-    if (name === "image") {
-      setFormData({
-        ...formData,
-        [name]: files && files[0] ? files[0] : null,
-      });
-    } else {
-      setFormData({
-        ...formData,
-        [name]: value,
-      });
-    }
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  // Handles image file input separately
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setFormData((prev) => ({
+      ...prev,
+      image: file,
+    }));
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     console.log("Profile data updated:", formData);
-    // In a real app, you would send this data to a backend or database
+    // Send to backend here in real application
   };
 
   return (
@@ -57,7 +59,6 @@ export default function ProfilePage() {
         {/* Profile Picture Section */}
         <div className="flex flex-col items-center mb-6">
           <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-green-500 shadow-md">
-            {/* Display the current profile picture */}
             <img
               src={
                 formData.image
@@ -81,7 +82,8 @@ export default function ProfilePage() {
               type="file"
               id="image"
               name="image"
-              onChange={handleChange}
+              accept="image/*"
+              onChange={handleImageChange}
               className="hidden"
             />
           </div>
@@ -132,43 +134,25 @@ export default function ProfilePage() {
               Gender
             </span>
             <div className="mt-2 flex space-x-4">
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  className="form-radio text-green-600 focus:ring-green-600"
-                  name="gender"
-                  value="male"
-                  checked={formData.gender === "male"}
-                  onChange={handleChange}
-                />
-                <span className="ml-2 text-gray-700">Male</span>
-              </label>
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  className="form-radio text-green-600 focus:ring-green-600"
-                  name="gender"
-                  value="female"
-                  checked={formData.gender === "female"}
-                  onChange={handleChange}
-                />
-                <span className="ml-2 text-gray-700">Female</span>
-              </label>
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  className="form-radio text-green-600 focus:ring-green-600"
-                  name="gender"
-                  value="other"
-                  checked={formData.gender === "other"}
-                  onChange={handleChange}
-                />
-                <span className="ml-2 text-gray-700">Other</span>
-              </label>
+              {["male", "female", "other"].map((genderOption) => (
+                <label className="inline-flex items-center" key={genderOption}>
+                  <input
+                    type="radio"
+                    className="form-radio text-green-600 focus:ring-green-600"
+                    name="gender"
+                    value={genderOption}
+                    checked={formData.gender === genderOption}
+                    onChange={handleChange}
+                  />
+                  <span className="ml-2 text-gray-700 capitalize">
+                    {genderOption}
+                  </span>
+                </label>
+              ))}
             </div>
           </div>
 
-          {/* Confirm Button */}
+          {/* Submit Button */}
           <div className="flex w-full justify-center mt-6">
             <button
               type="submit"
