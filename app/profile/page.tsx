@@ -4,7 +4,12 @@ import { useState } from "react";
 
 export default function ProfilePage() {
   // In a real application, you would fetch the user's data from a database
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    fullName: string;
+    email: string;
+    gender: string;
+    image: File | null;
+  }>({
     fullName: "Jane Doe",
     email: "jane.doe@example.com",
     gender: "female",
@@ -16,7 +21,7 @@ export default function ProfilePage() {
     if (name === "image") {
       setFormData({
         ...formData,
-        [name]: files[0],
+        [name]: files && files[0] ? files[0] : null,
       });
     } else {
       setFormData({
