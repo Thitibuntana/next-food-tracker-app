@@ -2,32 +2,134 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { client } from "@/lib/supabaseClient";
+
+type UserProfile = {
+  userId: string;
+  created_at: string;
+  updated_at: string;
+  email: string;
+  full_name: string;
+  gender: string;
+  image_url: string;
+};
 
 export default function RegisterPage() {
+  const router = useRouter();
+
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [gender, setGender] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleConfirm = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const formData = {
-      fullName,
-      email,
-      password,
-      gender,
-      imageFile: imageFile ? imageFile.name : null,
-    };
-    console.log("Registration data submitted:", formData);
-    // Here you would typically handle form submission, e.g., send data to a backend API
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!fullName || !email || !password || !gender || !imageFile) {
+      alert("Please fill all fields and upload a picture.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // 1. Sign up with Supabase Auth
+      const { data: authData, error: authError } = await client.auth.signUp({
+        email,
+        password,
+      });
+
+      if (authError || !authData.user) {
+        throw authError ?? new Error("Signup failed");
+      }
+
+      const userId = authData.user.id;
+
+      // 2. Upload image to storage bucket `user_bk`
+      const fileExt = imageFile.name.split(".").pop();
+      const fileName = `${userId}-${Date.now()}.${fileExt}`;
+      const filePath = `profile_pics/${fileName}`;
+
+      const { error: uploadError } = await client.storage
+        .from("user_bk")
+        .upload(filePath, imageFile);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: urlData } = client.storage
+        .from("user_bk")
+        .getPublicUrl(filePath);
+      const imageUrl = urlData.publicUrl;
+
+      // 3. Insert profile into user_tb
+      const { data: profileData, error: profileError } = await client
+        .from("user_tb")
+        .insert([
+          {
+            userId,
+            email,
+            full_name: fullName,
+            gender,
+            image_url: imageUrl,
+          },
+        ])
+        .select()
+        .single();
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      alert(
+        "Registration successful. Please check your email to confirm (if required)."
+      );
+      router.push("/login");
+    } catch (err: unknown) {
+      console.error("Register error:", err);
+      if (err instanceof Error) {
+        alert("Error: " + err.message);
+      } else if (typeof err === "string") {
+        alert("Error: " + err);
+      } else if (typeof err === "object" && err !== null) {
+        // try to get a message property
+        const maybeAny = err as unknown as { message?: string };
+        if (maybeAny.message && typeof maybeAny.message === "string") {
+          alert("Error: " + maybeAny.message);
+        } else {
+          alert("An unknown error occurred.");
+        }
+      } else {
+        alert("An unknown error occurred.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setImageFile(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setImagePreview(null);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-100 to-green-300 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg">
-        {/* Added link to return to home page */}
         <div className="text-center mb-4">
           <Link href="/" className="text-sm text-green-600 hover:underline">
             ← Return to home page
@@ -36,7 +138,7 @@ export default function RegisterPage() {
         <h1 className="text-3xl font-extrabold text-center text-green-900 mb-6">
           Create an Account!
         </h1>
-        <form onSubmit={handleConfirm} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Full Name
@@ -75,60 +177,7 @@ export default function RegisterPage() {
             <span
               className="absolute inset-y-0 right-0 top-6 pr-3 flex items-center cursor-pointer"
               onClick={() => setShowPassword(!showPassword)}
-            >
-              <svg
-                className="h-5 w-5 text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                {showPassword ? (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.976 9.976 0 011.543-2.614M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                ) : (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                )}
-                {showPassword ? (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 19l9.543-7C20.268 5.943 16.478 3 12 3S3.732 5.943 2.457 12C3.732 18.057 7.522 21 12 21a9.976 9.976 0 001.875-.175"
-                  />
-                ) : (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                )}
-                {showPassword ? (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9.875 9.875l4.25 4.25M10.75 10.75l4.25 4.25"
-                  />
-                ) : (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 19c4.478 0 8.268-2.943 9.543-7a9.976 9.976 0 00-1.543-2.614M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                )}
-              </svg>
-            </span>
+            ></span>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -157,6 +206,17 @@ export default function RegisterPage() {
                 />
                 <span className="ml-2 text-gray-700">Female</span>
               </label>
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  name="gender"
+                  value="Other"
+                  checked={gender === "Other"}
+                  onChange={(e) => setGender(e.target.value)}
+                  className="form-radio text-green-600 focus:ring-green-500"
+                />
+                <span className="ml-2 text-gray-700">Other</span>
+              </label>
             </div>
           </div>
           <div>
@@ -166,19 +226,24 @@ export default function RegisterPage() {
             <input
               type="file"
               accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0] ?? null;
-                setImageFile(file);
-              }}
+              onChange={handleImageChange}
               className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
             />
+            {imagePreview && (
+              <img
+                src={imagePreview}
+                alt="Profile Preview"
+                className="mt-4 w-24 h-24 object-cover rounded-full border border-gray-300"
+              />
+            )}
           </div>
           <div className="flex justify-between space-x-4 pt-4">
             <button
               type="submit"
               className="w-full py-3 px-8 text-lg font-semibold rounded-xl text-white bg-green-700 hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 transition-all duration-300 transform"
+              disabled={loading}
             >
-              Confirm
+              {loading ? "Submitting..." : "Confirm"}
             </button>
           </div>
         </form>

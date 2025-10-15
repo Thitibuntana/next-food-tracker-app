@@ -1,99 +1,90 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { client } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
+
+type Food = {
+  id: string;
+  created_at: string;
+  date: string;
+  image_url: string;
+  meal_name: string;
+  meal_type: string;
+  userId: string;
+  update_at: string;
+};
 
 export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [meals, setMeals] = useState<Food[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [profileUrl, setProfileUrl] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const router = useRouter();
 
-  // Mock data for demonstration
-  const mockMeals = [
-    {
-      id: 1,
-      date: "2023-10-26",
-      imageUrl: "https://placehold.co/100x100/A5D6A7/000000?text=Breakfast",
-      name: "Scrambled Eggs with Toast",
-      mealType: "Breakfast",
-    },
-    {
-      id: 2,
-      date: "2023-10-26",
-      imageUrl: "https://placehold.co/100x100/A5D6A7/000000?text=Lunch",
-      name: "Grilled Chicken Salad",
-      mealType: "Lunch",
-    },
-    {
-      id: 3,
-      date: "2023-10-26",
-      imageUrl: "https://placehold.co/100x100/A5D6A7/000000?text=Snack",
-      name: "Apple Slices with Peanut Butter",
-      mealType: "Snack",
-    },
-    {
-      id: 4,
-      date: "2023-10-25",
-      imageUrl: "https://placehold.co/100x100/A5D6A7/000000?text=Dinner",
-      name: "Spaghetti with Meatballs",
-      mealType: "Dinner",
-    },
-    {
-      id: 5,
-      date: "2023-10-25",
-      imageUrl: "https://placehold.co/100x100/A5D6A7/000000?text=Breakfast",
-      name: "Oatmeal with Berries",
-      mealType: "Breakfast",
-    },
-    {
-      id: 6,
-      date: "2023-10-25",
-      imageUrl: "https://placehold.co/100x100/A5D6A7/000000?text=Lunch",
-      name: "Chicken and Rice Bowl",
-      mealType: "Lunch",
-    },
-    {
-      id: 7,
-      date: "2023-10-24",
-      imageUrl: "https://placehold.co/100x100/A5D6A7/000000?text=Snack",
-      name: "Protein Shake",
-      mealType: "Snack",
-    },
-    {
-      id: 8,
-      date: "2023-10-24",
-      imageUrl: "https://placehold.co/100x100/A5D6A7/000000?text=Dinner",
-      name: "Baked Salmon with Asparagus",
-      mealType: "Dinner",
-    },
-    {
-      id: 9,
-      date: "2023-10-24",
-      imageUrl: "https://placehold.co/100x100/A5D6A7/000000?text=Breakfast",
-      name: "Fruit Smoothie",
-      mealType: "Breakfast",
-    },
-    {
-      id: 10,
-      date: "2023-10-23",
-      imageUrl: "https://placehold.co/100x100/A5D6A7/000000?text=Lunch",
-      name: "Tuna Sandwich",
-      mealType: "Lunch",
-    },
-  ];
+  useEffect(() => {
+    const fetchMeals = async () => {
+      const { data: { user }, error: userError } = await client.auth.getUser();
+      if (userError || !user) {
+        setMeals([]);
+        setLoading(false);
+        return;
+      }
+      setUserId(user.id);
+      setProfileUrl(user.user_metadata?.avatar_url || null);
+      const { data, error } = await client
+        .from("food_tb")
+        .select("*")
+        .eq("userId", user.id)
+        .order("date", { ascending: false });
+      if (error) {
+        setMeals([]);
+      } else {
+        setMeals(data ?? []);
+      }
+      setLoading(false);
+    };
+    fetchMeals();
+  }, []);
 
-  // Filter meals based on search query
-  const filteredMeals = mockMeals.filter(
+  const filteredMeals = meals.filter(
     (meal) =>
-      meal.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      meal.mealType.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      meal.meal_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      meal.meal_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
       meal.date.includes(searchQuery)
   );
 
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this meal?")) return;
+    const { error } = await client.from("food_tb").delete().eq("id", id);
+    if (error) {
+      alert("Failed to delete meal.");
+    } else {
+      setMeals((prev) => prev.filter((meal) => meal.id !== id));
+    }
+  };
+
+  const handleEdit = (id: string) => {
+    router.push(`/updatefood/${id}`);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-100 to-green-300 flex flex-col items-center p-4">
-      {/* Link to return to home page */}
-
-      <div className="w-full max-w-4xl bg-white p-8 rounded-2xl shadow-lg">
+      <div className="relative w-full max-w-4xl bg-white p-8 rounded-2xl shadow-lg">
+        {profileUrl && userId && (
+          <Image
+            src={profileUrl}
+            alt="Profile"
+            width={48}
+            height={48}
+            className="absolute top-4 left-4 rounded-full cursor-pointer border-2 border-green-600 hover:border-green-800"
+            onClick={() => router.push(`/profile/${userId}`)}
+            unoptimized
+          />
+        )}
         <div className="text-center mb-4 mt-1">
           <Link href="/" className="text-sm text-green-600 hover:underline">
             ← Return to home page
@@ -104,7 +95,6 @@ export default function DashboardPage() {
         </h1>
 
         <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 md:space-x-4 mb-6">
-          {/* Search bar */}
           <input
             type="text"
             placeholder="Search by name, meal type, or date..."
@@ -112,7 +102,6 @@ export default function DashboardPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full md:w-2/3 px-4 py-2 border-2 border-green-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-colors duration-300"
           />
-          {/* Add Food Button */}
           <a
             href="/addfood"
             className="w-full md:w-1/3 py-3 px-8 text-lg font-semibold rounded-xl text-white text-center bg-green-700 hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105"
@@ -125,40 +114,32 @@ export default function DashboardPage() {
           <table className="min-w-full divide-y divide-green-200">
             <thead className="bg-green-50">
               <tr>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-green-800 uppercase tracking-wider"
-                >
+                <th className="px-6 py-3 text-left text-xs font-medium text-green-800 uppercase tracking-wider">
                   Date
                 </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-green-800 uppercase tracking-wider"
-                >
+                <th className="px-6 py-3 text-left text-xs font-medium text-green-800 uppercase tracking-wider">
                   Picture
                 </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-green-800 uppercase tracking-wider"
-                >
+                <th className="px-6 py-3 text-left text-xs font-medium text-green-800 uppercase tracking-wider">
                   Name
                 </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-green-800 uppercase tracking-wider"
-                >
+                <th className="px-6 py-3 text-left text-xs font-medium text-green-800 uppercase tracking-wider">
                   Meal Type
                 </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-right text-xs font-medium text-green-800 uppercase tracking-wider"
-                >
+                <th className="px-6 py-3 text-right text-xs font-medium text-green-800 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-green-200">
-              {filteredMeals.length > 0 ? (
+              {!loading && filteredMeals.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                    No meals found.
+                  </td>
+                </tr>
+              )}
+              {!loading &&
                 filteredMeals.map((meal) => (
                   <tr
                     key={meal.id}
@@ -169,8 +150,8 @@ export default function DashboardPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Image
-                        src={meal.imageUrl}
-                        alt={meal.name}
+                        src={meal.image_url}
+                        alt={meal.meal_name}
                         width={64}
                         height={64}
                         className="h-16 w-16 rounded-full object-cover"
@@ -179,16 +160,14 @@ export default function DashboardPage() {
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {meal.name}
+                      {meal.meal_name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {meal.mealType}
+                      {meal.meal_type}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
-                        onClick={() =>
-                          console.log("Edit clicked for meal ID:", meal.id)
-                        }
+                        onClick={() => handleEdit(meal.id)}
                         className="text-white bg-green-500 hover:bg-green-600 p-2 rounded-md mr-2"
                         aria-label="Edit"
                       >
@@ -197,9 +176,7 @@ export default function DashboardPage() {
                         </span>
                       </button>
                       <button
-                        onClick={() =>
-                          console.log("Delete clicked for meal ID:", meal.id)
-                        }
+                        onClick={() => handleDelete(meal.id)}
                         className="text-white bg-red-500 hover:bg-red-600 p-2 rounded-md"
                         aria-label="Delete"
                       >
@@ -209,14 +186,11 @@ export default function DashboardPage() {
                       </button>
                     </td>
                   </tr>
-                ))
-              ) : (
+                ))}
+              {loading && (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-6 py-4 text-center text-gray-500"
-                  >
-                    No meals found.
+                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                    Loading...
                   </td>
                 </tr>
               )}

@@ -2,30 +2,36 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
+import { client } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
+  const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const router = useRouter();
-  
-  const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
 
-    event.preventDefault();
-    const loginData = {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const { error } = await client.auth.signInWithPassword({
       email,
       password,
-    };
-    console.log("Login data submitted:", loginData);
-    router.push('/dashboard');
-    // Here you would typically handle user authentication, e.g., send data to an API
+    });
+
+    if (error) {
+      alert("Login failed: " + error.message);
+      return;
+    }
+
+    alert("Login successful!");
+    router.push("/dashboard");
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-100 to-green-300 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg">
-        {/* Link to return to home page */}
         <div className="text-center mb-4">
           <Link href="/" className="text-sm text-green-600 hover:underline">
             ← Return to home page
@@ -36,7 +42,7 @@ export default function LoginPage() {
           Login to Your Account
         </h1>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Email
@@ -97,7 +103,7 @@ export default function LoginPage() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M12 19c4.478 0 8.268-2.943 9.543-7a9.976 9.976 0 00-1.543-2.614M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    d="M12 19c4.478 0 8.268-2.943 9.543-7a9.976 9.976 0 00-1.543-2.614M15 12a3 3 0 11-6 0 3 3 0 066 0z"
                   />
                 )}
                 {showPassword ? (
@@ -112,7 +118,7 @@ export default function LoginPage() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    d="M15 12a3 3 0 11-6 0 3 3 0 066 0z"
                   />
                 )}
               </svg>
@@ -130,10 +136,7 @@ export default function LoginPage() {
 
         <p className="mt-4 text-center text-sm text-gray-600">
           Don&apos;t have an account?{" "}
-          <Link
-            href="/register"
-            className="font-semibold text-green-600 hover:underline"
-          >
+          <Link href="/register" className="font-semibold text-green-600 hover:underline">
             Register here
           </Link>
         </p>
